@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "bundler/setup"
-require_relative "lib/ke_project"
+require_relative "lib/cspace_assisted_mig_support"
 
 # Looks up the absolute path to the kiba-extend gem where it is installed on
 #   your machine, and requires its Thor tasks in your project

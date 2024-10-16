@@ -1,0 +1,112 @@
+:toc:
+:toc-placement!:
+:toclevels: 4
+
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+= CollectionSpace Assisted Migration Support tasks usage
+
+toc::[]
+
+== authority
+
+=== authority:extract_cleaned
+
+The example assumes we are extracting cleaned concept terms from an object data spreadsheet, but note:
+
+* The command assumes all terms in the specified headers/columns are going to be ingested into the same authority vocabulary. We do not specify the authority vocabulary anywhere. If you have person names and organization names in the same column, this does not separate them!
+* The source file does not have to be in a format that is importable via the CSV Importer. It can be literally any CSV.
+
+Also note that "clean" is a very simple thing here. It is not doing anything fancy. It is only normalizing terms that they are unique when case is ignored and spaces, punctuation, and diacritics are removed.
+
+==== Initial info needed/Config options
+
+authority_extract_source_file:: A CSV file having one or more columns that contain terms in the authority vocabulary of interest. Default/example value: https://github.com/lyrasis/cspace-assisted-mig-support/blob/main/data/supplied/authority_orig.csv[authority_orig.csv]. NOTE: the row 2 value of `assoc_subject` contains a new line character between "Illinois--History" and "Pictorial works". This new line isn't rendered by Github's CSV display.
+authority_extract_headers:: The headers of the columns containing terms in the authority vocabulary of interest. Default/example value: `%i[main_subject assoc_subject]`
+authority_split_delims:: Strings (in addition to the expected `|` delimiter) used to split multiple authority values in a single cell in the source file. Default/example value: `["; ", ";", "\n"]`
+
+==== Run command
+
+`thor authority:extract_cleaned`
+
+==== Output files
+
+===== https://github.com/lyrasis/cspace-assisted-mig-support/blob/main/data/output/authority_load.csv[authority_load.csv]
+
+A unique list of authority terms that can be imported via the CSV Importer.
+
+These are _normalized for deduplication_, meaning this file can be ingested without running into duplicate ID warnings. See <<norm-notes>> for details.
+
+===== https://github.com/lyrasis/cspace-assisted-mig-support/blob/main/data/output/authority_cleaned_source.csv[authority_cleaned_source.csv]
+
+Your source file, with new "clean" columns added. The clean columns have been updated to use only the forms of terms included in `authority_load.csv`.
+
+In our example, `main_subject_clean` and `assoc_subject_clean` columns are added. The default multivalue delimiter expected by the CSV Importer is used in the clean columns. All terms in the clean columns will exist in your CollectionSpace instance if you have already loaded the `authority_load.csv` file.
+
+===== https://github.com/lyrasis/cspace-assisted-mig-support/blob/main/data/output/authority_cleanup_todo.csv[authority_cleanup_todo.csv]
+
+NOTE: Row 3 of the `find` column in the example output file contains a new line character between "Illinois--History" and "Pictorial works". This new line isn't rendered by Github's CSV display.
+
+This file can be used for different purposes:
+
+* See what original values got changed (the `find` column) and what they got changed to (the `replace` column).
+* The find/replace values can be manually or programmatically footnote:[A command to do this will be developed if needed] applied to other files, to ensure consistent forms of authority values are used in additional loads.
+
+[TIP]
+====
+Find/replace can be very destructive if you are not careful. One way to prevent find/replace accidents in tabular data is to limit the operation to whole cell values only.
+
+The `find` and `replace` values in this file assume you will be doing whole cell replacements in one column/field at a time.
+====
+
+==== Notes
+
+* Ideally your source file will contain all original values that will be mapping into the given authority (concept/associated) in our example. This will:
+** Ensure the most frequently used form of each term is used as the to-load authority term
+** Minimize need to manually or programatically clean additional files so that they will match already-loaded authority terms
+
+[#norm-notes]
+===== How the deduplication based on normalized forms works
+
+Each term is normalized.footnote:[Non-alphanumeric characters (including spaces) are removed, and the remaining value is downcased.]
+
+Original terms are grouped by normalized value.
+
+A clean/to-load form is selected for each normalized value. If one original form of a normalized value occurs most frequently in the source file, that form is used as the clean/to-load form. If there are equal numbers of occurrences of some original forms, the first-occurring original form is used.
+
+.Most frequently occurring form
+====
+* 25 occurrences in source file: de Vil, Cruella
+* 04 occurrences in source file: De Vil, Cruella
+* 02 occurrences in source file: DeVil, Cruella
+
+*Clean/to-load form:* de Vil, Cruella
+====
+
+.First occurring form tie-breaker among most frequently used forms
+====
+* 10 occurrences in source file: de Vil, Cruella
+* 04 occurrences in source file: De Vil, Cruella
+* 10 occurrences in source file: DeVil, Cruella
+
+"DeVil, Cruella" occurs before "de Vil, Cruella" in source file.
+
+*Clean/to-load form:* DeVil, Cruella
+====
+
+.First occurring form tie-breaker among forms all used the same number of times
+====
+* 02 occurrences in source file: de Vil, Cruella
+* 02 occurrences in source file: De Vil, Cruella
+* 02 occurrences in source file: DeVil, Cruella
+
+"De Vil, Cruella" is the first occurrence encountered in source file.
+
+*Clean/to-load form:* De Vil, Cruella
+====

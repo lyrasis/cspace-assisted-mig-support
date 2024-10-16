@@ -12,10 +12,10 @@ Dir.glob("#{kiba_spec_dir}/*").sort.select { |path|
   require rbfile
 end
 
-require_relative "../lib/ke_project"
+require_relative "../lib/cspace_assisted_mig_support"
 
 RSpec.configure do |config|
-  config.extend KeProject
+  config.extend CspaceAssistedMigSupport
   config.include Helpers
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
